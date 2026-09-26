@@ -1,0 +1,14 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local configuration with database credentials
+api/config.php
+.env
+
+# Editor folders
+.vscode/
+.idea/
+
+# Course handouts (not project source)
+*.docx
