@@ -1,0 +1,134 @@
+@startuml
+!pragma layout smetana
+top to bottom direction
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+skinparam defaultFontSize 14
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1.2
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor #F8FAFC
+skinparam classBorderColor #64748B
+skinparam packageBackgroundColor white
+skinparam packageBorderColor #94A3B8
+skinparam noteBackgroundColor #FFFBEB
+skinparam noteBorderColor #D6B65A
+skinparam noteFontSize 12
+skinparam nodesep 35
+skinparam ranksep 45
+skinparam dpi 120
+hide circle
+
+title COLORS - Class Diagram (Implementation Model)
+
+package "Client / Browser" {
+  class "index.html" as LoginPage <<page>> {
+    loginName : input
+    loginPassword : input
+    loginButton : button
+    loginResult : span
+  }
+
+  class "color.html" as ColorPage <<page>> {
+    userName : span
+    logoutButton : button
+    searchText : input
+    searchColorButton : button
+    colorSearchResult : span
+    colorList : p
+    colorText : input
+    addColorButton : button
+    colorAddResult : span
+  }
+
+  class "js/code.js" as Code <<script>> {
+    urlBase : String {readOnly}
+    extension : String = "php" {readOnly}
+    userId : Number = 0
+    firstName : String = ""
+    lastName : String = ""
+    --
+    doLogin() : void
+    saveCookie() : void
+    readCookie() : void
+    doLogout() : void
+    addColor() : void
+    searchColor() : void
+  }
+
+  class "js/md5.js" as MD5 <<script>> {
+    md5(string, key, raw) : String
+  }
+
+  LoginPage ..> Code : calls doLogin()
+  ColorPage ..> Code : calls page functions
+  LoginPage ..> MD5 : loads
+  note right of MD5
+    key and raw are optional arguments.
+    The md5() call in doLogin() is commented out.
+    Login sends the password unchanged.
+  end note
+}
+
+package "Server / LAMPAPI" {
+  class "Login.php" as LoginAPI <<endpoint>> {
+    getRequestInfo() : Array
+    sendResultInfoAsJson(obj : String) : void
+    returnWithError(err : String) : void
+    returnWithInfo(firstName : String, lastName : String, id : Integer) : void
+  }
+
+  class "SearchColors.php" as SearchAPI <<endpoint>> {
+    getRequestInfo() : Array
+    sendResultInfoAsJson(obj : String) : void
+    returnWithError(err : String) : void
+    returnWithInfo(searchResults : String) : void
+  }
+
+  class "AddColor.php" as AddAPI <<endpoint>> {
+    getRequestInfo() : Array
+    sendResultInfoAsJson(obj : String) : void
+    returnWithError(err : String) : void
+  }
+}
+
+package "Database / MySQL: COP4331" {
+  class Users <<table>> {
+    {field} ID : INT {PK, auto_increment}
+    {field} FirstName : VARCHAR(50) = ""
+    {field} LastName : VARCHAR(50) = ""
+    {field} Login : VARCHAR(50) = ""
+    {field} Password : VARCHAR(50) = ""
+  }
+
+  class Colors <<table>> {
+    {field} ID : INT {PK, auto_increment}
+    {field} Name : VARCHAR(50) = ""
+    {field} UserID : INT = 0
+  }
+
+  Users "0..1" -- "0..*" Colors : UserID matches ID
+  note right of Colors
+    All columns are NOT NULL.
+    The guide declares no FOREIGN KEY.
+    A color may have no matching Users row;
+    valid UI-created data normally has one.
+  end note
+}
+
+Code ..> LoginAPI : POST / JSON\n{login, password}
+Code ..> SearchAPI : POST / JSON\n{search, userId}
+Code ..> AddAPI : POST / JSON\n{color, userId}
+LoginAPI ..> Users : SELECT\nLogin + Password
+SearchAPI ..> Colors : SELECT\nName LIKE + UserID
+AddAPI ..> Colors : INSERT\nUserID + Name
+
+legend bottom
+  Stereotyped classes represent files, procedural modules, and database records.
+  They do not imply that the source declares object-oriented classes or private methods.
+  Operation types summarize expected valid inputs/outputs; JS and PHP signatures are untyped.
+  The association describes matching stored IDs, not an enforced foreign-key constraint.
+  Source: supplied LAMP Stack files and the SQL in Getting Started with LAMP.docx.
+endlegend
+@enduml
