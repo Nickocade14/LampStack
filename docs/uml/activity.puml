@@ -1,0 +1,96 @@
+@startuml
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName SansSerif
+skinparam defaultFontSize 14
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1.2
+skinparam activityBackgroundColor #EFF6FF
+skinparam activityBorderColor #2563EB
+skinparam activityDiamondBackgroundColor #F8FAFC
+skinparam activityDiamondBorderColor #64748B
+skinparam activityStartColor #334155
+skinparam activityEndColor #334155
+skinparam noteBackgroundColor #FFFBEB
+skinparam noteBorderColor #D6B65A
+skinparam noteFontSize 12
+skinparam dpi 120
+
+title COLORS - Activity Diagram\nNormal UI flow and implemented response behavior
+
+start
+:User: open index.html;
+
+repeat
+  :User: enter login and password;\nclick "Do It";
+  :Browser: doLogin() resets user state;\nPOST {login, password} to Login.php;
+  #ECFDF5:API / MySQL: select ID, firstName, lastName\nfrom Users where Login and Password match;
+  #ECFDF5:API: return JSON with\nid, firstName, lastName, error;
+  note right
+    No matching row:
+    id = 0; names are empty;
+    error = "No Records Found".
+  end note
+  :Browser: parse response;\nassign userId = response.id;
+  backward:Browser: show\n"User/Password combination incorrect";
+repeat while (userId < 1?) is (yes) not (no)
+
+:Browser: assign firstName and lastName;\nsaveCookie() with 20-minute expiration;\nnavigate to color.html;
+:Browser: on DOMContentLoaded, call readCookie();\nset userId = -1, then parse cookie fields;
+
+if (userId < 0?) then (yes)
+  :Browser: navigate to index.html;
+  stop
+else (no)
+endif
+
+:User: choose Search, Add, or Log Out;
+
+while (Chosen action?) is (Search or Add)
+  if (Search selected?) then (yes: Search)
+    :User: enter search text;\nclick "Search Color";
+    :Browser: searchColor();\nPOST {search, userId} to SearchColors.php;
+    #ECFDF5:API / MySQL: select Name from Colors\nwhere Name LIKE the search pattern\nand UserID equals the submitted userId;
+    if (Matching rows?) then (yes)
+      #ECFDF5:API: return JSON\n{results: [names], error: ""};
+    else (no)
+      #ECFDF5:API: return JSON with\nerror: "No Records Found";\nno results property;
+    endif
+    :Browser: show\n"Color(s) has been retrieved";\nparse response JSON;
+    if (Response has results?) then (yes)
+      :Browser: iterate results;\nreplace the color-list paragraph;
+    else (no)
+      #FFF1F2:Browser: results.length throws TypeError;\ncallback ends; previous list remains;
+      note right
+        Outcome split, not a guard in code:
+        searchColor() always tries results.length.
+        The page remains usable.
+      end note
+    endif
+  else (no: Add)
+    :User: enter a color name;\nclick "Add Color";
+    :Browser: addColor();\nPOST {color, userId} to AddColor.php;
+    #ECFDF5:API / MySQL: INSERT into Colors\n(UserID, Name) using submitted values;
+    #ECFDF5:API: return JSON {error: ""};
+    :Browser: show "Color has been added"\non HTTP 200;
+    note right
+      The browser does not inspect the body.
+      It also shows this message if an error
+      JSON response arrives with HTTP 200.
+    end note
+  endif
+  :User: choose the next action;
+endwhile (Log Out)
+
+:User: click "Log Out";
+:Browser: doLogout() resets userId to 0\nand names to empty strings;\nexpire the cookie; navigate to index.html;
+stop
+
+legend bottom
+  Blue: user / browser actions. Green: API / database actions. Pink: existing frontend failure.
+  Scope: ordinary UI interaction, HTTP 200 and parseable JSON; database commands succeed unless stated.
+  readCookie() checks only userId < 0. It is not server-side authentication.
+  Cookie expiration does not automatically redirect an already-open page.
+  Network failures, malformed data, direct API calls, and overlapping requests are outside this flow.
+endlegend
+@enduml
