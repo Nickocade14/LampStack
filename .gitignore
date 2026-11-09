@@ -12,3 +12,6 @@ api/config.php
 
 # Course handouts (not project source)
 *.docx
+
+# Node tooling (used only for linting)
+node_modules/
