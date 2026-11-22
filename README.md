@@ -28,6 +28,11 @@ LampStack/
 │   ├── js/code.js          # Calls the API and manages the session cookie
 │   ├── js/md5.js           # MD5 helper for optional password hashing
 │   └── images/
+├── db/schema.sql           # Database schema + sample user (also used by CI)
+├── tests/
+│   ├── unit/               # Front-end unit tests (Jest + jsdom)
+│   └── integration/        # API integration tests (real PHP + MySQL)
+├── .github/workflows/ci.yml # Lint + unit tests + integration tests
 ├── .gitignore
 ├── LICENSE.md
 └── README.md
@@ -117,18 +122,36 @@ curl -X POST http://<server>/LAMPAPI/Login.php \
      -d '{"login":"TestUser","password":"Test"}'
 ```
 
+## Testing and CI
+
+Node.js is used only for the lint and test tools; the app itself always runs on Apache/PHP/MySQL.
+
+- **Unit tests** (`tests/unit/`) load `public/js/code.js` into a simulated browser (jsdom) and check the color validation (`validateColorName`), the result formatting (`formatColorList`), and what the add/search forms send to the API.
+- **Integration tests** (`tests/integration/`) send real HTTP requests to the PHP endpoints, backed by a real MySQL database, and check the status code, content type and JSON structure of `Login.php`, `AddColor.php` and `SearchColors.php`.
+
+```bash
+npm ci
+npm run lint              # HTMLHint, Stylelint, ESLint
+npm run test:unit         # no server needed
+# Integration tests need the API running against a database built from db/schema.sql:
+php -S 127.0.0.1:8000 -t api
+npm run test:integration  # override the URL with API_BASE_URL if needed
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs three jobs on every push and pull request: **Lint**, **Front-end unit tests**, and **API integration tests**. The integration job starts a MySQL 8 service container, loads `db/schema.sql`, writes a CI-only `api/config.php`, and serves the API with PHP's built-in server before running the tests.
+
 ## Assumptions and limitations
 
 - Users must be inserted into the database manually; there is no sign-up page.
 - Passwords are stored and compared in plain text. `md5.js` is included and the hashing call is present but commented out in `code.js`; MD5 is also not a secure password hash, so this app should not be used with real credentials.
 - The logged-in session is kept in a browser cookie that expires after 20 minutes; it is not validated by the server.
-- API responses are built with string concatenation, so special characters (such as `"`) in names are not escaped.
+- API responses are built with string concatenation, so special characters (such as `"`) in names are not escaped in the JSON. The frontend does escape HTML when it displays search results.
 - The app is served over plain HTTP unless HTTPS is configured separately on Apache.
 - There is no update or delete functionality for colors.
 
 ## AI usage
 
-The application code (frontend and PHP API) comes from the COP 4331 COLORS lab. An AI assistant (Claude Code, by Anthropic) was used to help organize this repository for submission: moving the files into the `api/` and `public/` structure, moving hard-coded database credentials into a Git-ignored `config.php`, replacing the hard-coded server IP with a relative API path, and drafting this README, the `.gitignore`, and the commit breakdown. All changes were reviewed by the author.
+The application code (frontend and PHP API) comes from the COP 4331 COLORS lab. An AI assistant (Claude Code, by Anthropic) was used to help organize this repository for submission: moving the files into the `api/` and `public/` structure, moving hard-coded database credentials into a Git-ignored `config.php`, replacing the hard-coded server IP with a relative API path, and drafting this README, the `.gitignore`, and the commit breakdown. It was also used to help set up the Jest unit and integration tests and the CI workflow. All changes were reviewed by the author.
 
 ## License
 

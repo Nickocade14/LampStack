@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (lint/test tools only)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install tools
+        run: npm ci
+
+      - name: Lint HTML (HTMLHint)
+        run: npm run lint:html
+
+      - name: Lint CSS (Stylelint)
+        if: ${{ !cancelled() }}
+        run: npm run lint:css
+
+      - name: Lint JavaScript (ESLint)
+        if: ${{ !cancelled() }}
+        run: npm run lint:js
+
+  unit-tests:
+    name: Front-end unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (test tools only)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install tools
+        run: npm ci
+
+      - name: Run unit tests (Jest + jsdom)
+        run: npm run test:unit
+
+  integration-tests:
+    name: API integration tests
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DB_USER: ci_user
+      DB_PASSWORD: ci_password
+      API_BASE_URL: http://127.0.0.1:8000
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mysqli
+          coverage: none
+
+      - name: Create test database and API user
+        run: |
+          mysql -h 127.0.0.1 -u root -proot < db/schema.sql
+          mysql -h 127.0.0.1 -u root -proot -e "
+            CREATE USER '$DB_USER'@'%' IDENTIFIED WITH mysql_native_password BY '$DB_PASSWORD';
+            GRANT ALL PRIVILEGES ON COP4331.* TO '$DB_USER'@'%';
+            FLUSH PRIVILEGES;"
+
+      - name: Write api/config.php for CI
+        run: |
+          cat > api/config.php <<PHP
+          <?php
+            define("DB_HOST", "127.0.0.1");
+            define("DB_USER", "$DB_USER");
+            define("DB_PASSWORD", "$DB_PASSWORD");
+            define("DB_NAME", "COP4331");
+          ?>
+          PHP
+
+      - name: Start PHP API server
+        run: |
+          php -S 127.0.0.1:8000 -t api > php-server.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -s -o /dev/null http://127.0.0.1:8000/Login.php && exit 0
+            sleep 1
+          done
+          echo "PHP server did not start" && cat php-server.log && exit 1
+
+      - name: Set up Node.js (test tools only)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install tools
+        run: npm ci
+
+      - name: Run integration tests (Jest)
+        run: npm run test:integration
+
+      - name: Show PHP server log
+        if: ${{ failure() }}
+        run: cat php-server.log
