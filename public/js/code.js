@@ -3,9 +3,49 @@
 const urlBase = '/LAMPAPI';
 const extension = 'php';
 
+// Matches the Colors.Name column (VARCHAR(50)) in the database
+const MAX_COLOR_LENGTH = 50;
+
 let userId = 0;
 let firstName = "";
 let lastName = "";
+
+// Returns an error message for an invalid color name, or "" if it is valid
+function validateColorName(name)
+{
+	const trimmed = (typeof name === "string") ? name.trim() : "";
+
+	if( trimmed.length === 0 )
+	{
+		return "Please enter a color name";
+	}
+	if( trimmed.length > MAX_COLOR_LENGTH )
+	{
+		return "Color name must be " + MAX_COLOR_LENGTH + " characters or fewer";
+	}
+	return "";
+}
+
+// Escapes characters that have special meaning in HTML
+function escapeHtml(text)
+{
+	return String(text)
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+}
+
+// Turns the API's results array into the HTML shown on the colors page
+function formatColorList(results)
+{
+	if( !Array.isArray(results) )
+	{
+		return "";
+	}
+	return results.map(escapeHtml).join("<br />\r\n");
+}
 
 function doLogin()
 {
@@ -115,7 +155,14 @@ function addColor()
 	const newColor = document.getElementById("colorText").value;
 	document.getElementById("colorAddResult").innerHTML = "";
 
-	const tmp = {color:newColor,userId:userId};
+	const validationError = validateColorName(newColor);
+	if( validationError !== "" )
+	{
+		document.getElementById("colorAddResult").innerHTML = validationError;
+		return;
+	}
+
+	const tmp = {color:newColor.trim(),userId:userId};
 	const jsonPayload = JSON.stringify( tmp );
 
 	const url = urlBase + '/AddColor.' + extension;
@@ -146,8 +193,6 @@ function searchColor()
 	const srch = document.getElementById("searchText").value;
 	document.getElementById("colorSearchResult").innerHTML = "";
 	
-	let colorList = "";
-
 	const tmp = {search:srch,userId:userId};
 	const jsonPayload = JSON.stringify( tmp );
 
@@ -164,17 +209,8 @@ function searchColor()
 			{
 				document.getElementById("colorSearchResult").innerHTML = "Color(s) has been retrieved";
 				const jsonObject = JSON.parse( xhr.responseText );
-				
-				for( let i=0; i<jsonObject.results.length; i++ )
-				{
-					colorList += jsonObject.results[i];
-					if( i < jsonObject.results.length - 1 )
-					{
-						colorList += "<br />\r\n";
-					}
-				}
-				
-				document.getElementsByTagName("p")[0].innerHTML = colorList;
+
+				document.getElementsByTagName("p")[0].innerHTML = formatColorList(jsonObject.results);
 			}
 		};
 		xhr.send(jsonPayload);

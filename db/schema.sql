@@ -1,0 +1,24 @@
+-- Database schema for COLORS (same as the README setup).
+-- Also used by the CI integration tests to build a fresh test database.
+
+CREATE DATABASE IF NOT EXISTS COP4331;
+USE COP4331;
+
+CREATE TABLE IF NOT EXISTS Users (
+  ID        INT NOT NULL AUTO_INCREMENT,
+  FirstName VARCHAR(50) NOT NULL DEFAULT '',
+  LastName  VARCHAR(50) NOT NULL DEFAULT '',
+  Login     VARCHAR(50) NOT NULL DEFAULT '',
+  Password  VARCHAR(50) NOT NULL DEFAULT '',
+  PRIMARY KEY (ID)
+) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS Colors (
+  ID     INT NOT NULL AUTO_INCREMENT,
+  Name   VARCHAR(50) NOT NULL DEFAULT '',
+  UserID INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (ID)
+) ENGINE = InnoDB;
+
+-- Sample user for testing
+INSERT INTO Users (FirstName, LastName, Login, Password) VALUES ('Test', 'User', 'TestUser', 'Test');

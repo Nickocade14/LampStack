@@ -23,7 +23,14 @@ module.exports = [
     },
   },
   {
-    files: ["eslint.config.js"],
+    files: ["eslint.config.js", "jest.config.js"],
     languageOptions: { sourceType: "commonjs", globals: { ...globals.node } },
+  },
+  {
+    files: ["tests/**/*.js"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: { ...globals.node, ...globals.jest, ...globals.browser },
+    },
   },
 ];
